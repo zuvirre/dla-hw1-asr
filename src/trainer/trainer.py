@@ -112,6 +112,7 @@ class Trainer(BaseTrainer):
             cer = calc_cer(target, pred) * 100
 
             rows[Path(audio_path).name] = {
+                "step": self.writer.step,
                 "target": target,
                 "raw prediction": raw_pred,
                 "predictions": pred,
