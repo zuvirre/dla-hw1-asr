@@ -20,7 +20,7 @@ def calc_wer(target_text, predicted_text) -> float:
     predicted_words = predicted_text.split()
 
     if len(target_words) == 0:
-        if len(target_words) == 0:
+        if len(predicted_words) == 0:
             return 0
         else:
             return 1
