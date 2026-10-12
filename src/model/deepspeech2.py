@@ -1,5 +1,5 @@
 from torch import Tensor, nn
-from torch.nn import Sequential
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 
 def conv_out_length(length, kernel: int, stride: int, padding: int):
@@ -17,9 +17,22 @@ class DeepSpeech2(nn.Module):
         rnn_layers: int = 3,
         dropout: float = 0.1,
     ):
+        """
+        Args:
+            n_feats (int): number of input frequency features.
+            n_tokens (int): number of tokens in the vocabulary.
+            conv_params (list[dict]): kernel/stride/padding for each conv layer,
+                pairs (freq, time).
+            conv_channels (int): number of channels in conv layers.
+            rnn_hidden (int): hidden size of each GRU direction.
+            rnn_layers (int): number of stacked GRU layers.
+            dropout (float): dropout between GRU layers.
+        """
+
         super().__init__()
 
         blocks = []
+        self.conv_params = []
         in_channels = 1
         n_freq = n_feats
         for params in conv_params:
@@ -42,6 +55,7 @@ class DeepSpeech2(nn.Module):
                 )
             )
 
+            self.conv_params.append((kernel, stride, padding))
             n_freq = conv_out_length(
                 n_freq, kernel[0], stride[0], padding[0]
             )  # частотная ось после слоя
@@ -49,6 +63,15 @@ class DeepSpeech2(nn.Module):
 
         self.conv_blocks = nn.ModuleList(blocks)
         self.rnn_input_size = conv_channels * n_freq
+
+        self.rnn = nn.GRU(
+            input_size=self.rnn_input_size,
+            hidden_size=rnn_hidden,
+            num_layers=rnn_layers,
+            batch_first=True,
+            bidirectional=True,
+            dropout=dropout,
+        )
 
     def forward(self, spectrogram, spectrogram_length, **batch):
         """
@@ -64,7 +87,19 @@ class DeepSpeech2(nn.Module):
         x = spectrogram.unsqueeze(1)
         for block in self.conv_blocks:
             x = block(x)
-        return x  # временная заглушка до GRU
+
+        x = x.permute(0, 3, 2, 1)
+
+        x = x.reshape(x.shape[0], x.shape[1], -1)
+        lengths = self.transform_input_lengths(spectrogram_length)
+        t_out = x.shape[1]
+        x = pack_padded_sequence(
+            x, lengths.cpu(), batch_first=True, enforce_sorted=False
+        )
+        x, _ = self.rnn(x)
+        x, _ = pad_packed_sequence(x, batch_first=True, total_length=t_out)
+
+        return x
 
     def transform_input_lengths(self, input_lengths):
         """
@@ -76,7 +111,10 @@ class DeepSpeech2(nn.Module):
         Returns:
             output_lengths (Tensor): new temporal lengths
         """
-        return input_lengths  # we don't reduce time dimension here
+        lengths = input_lengths
+        for kernel, stride, padding in self.conv_params:
+            lengths = conv_out_length(lengths, kernel[1], stride[1], padding[1])
+        return lengths
 
     def __str__(self):
         """
