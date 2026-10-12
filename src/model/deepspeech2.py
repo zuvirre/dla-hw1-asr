@@ -56,9 +56,7 @@ class DeepSpeech2(nn.Module):
             )
 
             self.conv_params.append((kernel, stride, padding))
-            n_freq = conv_out_length(
-                n_freq, kernel[0], stride[0], padding[0]
-            )  # частотная ось после слоя
+            n_freq = conv_out_length(n_freq, kernel[0], stride[0], padding[0])
             in_channels = conv_channels
 
         self.conv_blocks = nn.ModuleList(blocks)
@@ -72,6 +70,8 @@ class DeepSpeech2(nn.Module):
             bidirectional=True,
             dropout=dropout,
         )
+
+        self.fc = nn.Linear(2 * rnn_hidden, n_tokens)
 
     def forward(self, spectrogram, spectrogram_length, **batch):
         """
@@ -99,7 +99,9 @@ class DeepSpeech2(nn.Module):
         x, _ = self.rnn(x)
         x, _ = pad_packed_sequence(x, batch_first=True, total_length=t_out)
 
-        return x
+        logits = self.fc(x)
+        log_probs = nn.functional.log_softmax(logits, dim=-1)
+        return {"log_probs": log_probs, "log_probs_length": lengths}
 
     def transform_input_lengths(self, input_lengths):
         """
