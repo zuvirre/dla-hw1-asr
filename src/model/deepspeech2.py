@@ -1,25 +1,54 @@
-from torch import nn
+from torch import Tensor, nn
 from torch.nn import Sequential
 
 
+def conv_out_length(length, kernel: int, stride: int, padding: int):
+    return (length + 2 * padding - kernel) // stride + 1
+
+
 class DeepSpeech2(nn.Module):
-    def __init__(self, n_feats, n_tokens, fc_hidden=512):
-        """
-        Args:
-            n_feats (int): number of input features.
-            n_tokens (int): number of tokens in the vocabulary.
-            fc_hidden (int): number of hidden features.
-        """
+    def __init__(
+        self,
+        n_feats: int,
+        n_tokens: int,
+        conv_params: list[dict],
+        conv_channels: int = 32,
+        rnn_hidden: int = 512,
+        rnn_layers: int = 3,
+        dropout: float = 0.1,
+    ):
         super().__init__()
 
-        self.net = Sequential(
-            # people say it can approximate any function...
-            nn.Linear(in_features=n_feats, out_features=fc_hidden),
-            nn.ReLU(),
-            nn.Linear(in_features=fc_hidden, out_features=fc_hidden),
-            nn.ReLU(),
-            nn.Linear(in_features=fc_hidden, out_features=n_tokens),
-        )
+        blocks = []
+        in_channels = 1
+        n_freq = n_feats
+        for params in conv_params:
+            kernel = tuple(params["kernel"])
+            stride = tuple(params["stride"])
+            padding = tuple(params["padding"])
+
+            blocks.append(
+                nn.Sequential(
+                    nn.Conv2d(
+                        in_channels,
+                        conv_channels,
+                        kernel_size=kernel,
+                        stride=stride,
+                        padding=padding,
+                        bias=False,
+                    ),
+                    nn.BatchNorm2d(conv_channels),
+                    nn.Hardtanh(0, 20),
+                )
+            )
+
+            n_freq = conv_out_length(
+                n_freq, kernel[0], stride[0], padding[0]
+            )  # частотная ось после слоя
+            in_channels = conv_channels
+
+        self.conv_blocks = nn.ModuleList(blocks)
+        self.rnn_input_size = conv_channels * n_freq
 
     def forward(self, spectrogram, spectrogram_length, **batch):
         """
@@ -32,10 +61,10 @@ class DeepSpeech2(nn.Module):
             output (dict): output dict containing log_probs and
                 transformed lengths.
         """
-        output = self.net(spectrogram.transpose(1, 2))
-        log_probs = nn.functional.log_softmax(output, dim=-1)
-        log_probs_length = self.transform_input_lengths(spectrogram_length)
-        return {"log_probs": log_probs, "log_probs_length": log_probs_length}
+        x = spectrogram.unsqueeze(1)
+        for block in self.conv_blocks:
+            x = block(x)
+        return x  # временная заглушка до GRU
 
     def transform_input_lengths(self, input_lengths):
         """
