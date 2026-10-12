@@ -1,0 +1,13 @@
+_target_: src.model.DeepSpeech2
+n_feats: 128
+conv_params:
+  - kernel: [41, 11]
+    stride: [2, 2]
+    padding: [20, 5]
+  - kernel: [21, 11]
+    stride: [2, 1]
+    padding: [10, 5]
+conv_channels: 32
+rnn_hidden: 512
+rnn_layers: 3
+dropout: 0.1
