@@ -6,6 +6,9 @@ defaults:
   - ds2
   - _self_
 
+writer:
+  mode: offline
+
 dataloader:
   num_workers: 4 # set after ds2_speedtest_100h (8 if GPU is starved)
 

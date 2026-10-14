@@ -23,7 +23,7 @@ text_encoder:
   _target_: src.text_encoder.CTCTextEncoder
 trainer:
   log_step: 50
-  n_epochs: 40
+  n_epochs: 80
   epoch_len: 500
   device_tensors: ["spectrogram", "text_encoded"]
   resume_from: null
