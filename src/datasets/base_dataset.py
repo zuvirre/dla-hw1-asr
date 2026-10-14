@@ -81,6 +81,7 @@ class BaseDataset(Dataset):
         data_dict = self._index[ind]
         audio_path = data_dict["path"]
         audio = self.load_audio(audio_path)
+        audio = self.apply_audio_transforms(audio)
         text = data_dict["text"]
         text_encoded = self.text_encoder.encode(text)
 
@@ -94,9 +95,6 @@ class BaseDataset(Dataset):
             "audio_path": audio_path,
         }
 
-        # TODO think of how to apply wave augs before calculating spectrogram
-        # Note: you may want to preserve both audio in time domain and
-        # in time-frequency domain for logging
         instance_data = self.preprocess_data(instance_data)
 
         return instance_data
@@ -127,6 +125,11 @@ class BaseDataset(Dataset):
         """
         return self.instance_transforms["get_spectrogram"](audio)
 
+    def apply_audio_transforms(self, audio):
+        if self.instance_transforms is not None and "audio" in self.instance_transforms:
+            audio = self.instance_transforms["audio"](audio)
+        return audio
+
     def preprocess_data(self, instance_data):
         """
         Preprocess data with instance transforms.
@@ -143,7 +146,7 @@ class BaseDataset(Dataset):
         """
         if self.instance_transforms is not None:
             for transform_name in self.instance_transforms.keys():
-                if transform_name == "get_spectrogram":
+                if transform_name in ("get_spectrogram", "audio"):
                     continue  # skip special key
                 instance_data[transform_name] = self.instance_transforms[
                     transform_name
@@ -178,7 +181,7 @@ class BaseDataset(Dataset):
             )
             _total = exceeds_audio_length.sum()
             logger.info(
-                f"{_total} ({_total / initial_size:.1%}) records are longer then "
+                f"{_total} ({_total / initial_size: .1%}) records are longer then "
                 f"{max_audio_length} seconds. Excluding them."
             )
         else:
@@ -194,7 +197,7 @@ class BaseDataset(Dataset):
             )
             _total = exceeds_text_length.sum()
             logger.info(
-                f"{_total} ({_total / initial_size:.1%}) records are longer then "
+                f"{_total} ({_total / initial_size: .1%}) records are longer then "
                 f"{max_text_length} characters. Excluding them."
             )
         else:
@@ -206,7 +209,7 @@ class BaseDataset(Dataset):
             _total = records_to_filter.sum()
             index = [el for el, exclude in zip(index, records_to_filter) if not exclude]
             logger.info(
-                f"Filtered {_total} ({_total / initial_size:.1%}) records  from dataset"
+                f"Filtered {_total} ({_total / initial_size: .1%}) records from dataset"
             )
 
         return index
