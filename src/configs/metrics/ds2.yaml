@@ -1,0 +1,10 @@
+train: # computed on train batches (with augs) to compare with val
+  - _target_: src.metrics.ArgmaxCERMetric
+    name: "CER_(Argmax)"
+  - _target_: src.metrics.ArgmaxWERMetric
+    name: "WER_(Argmax)"
+inference:
+  - _target_: src.metrics.ArgmaxCERMetric
+    name: "CER_(Argmax)"
+  - _target_: src.metrics.ArgmaxWERMetric
+    name: "WER_(Argmax)"
