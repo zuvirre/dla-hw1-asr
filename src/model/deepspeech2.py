@@ -6,6 +6,45 @@ def conv_out_length(length, kernel: int, stride: int, padding: int):
     return (length + 2 * padding - kernel) // stride + 1
 
 
+class ConvBlock(nn.Module):
+    """
+    One DeepSpeech2 conv layer: Conv2d -> BatchNorm2d -> HardTanh.
+    Stores its kernel/stride/padding to recompute output sizes.
+    """
+
+    def __init__(self, in_channels, out_channels, kernel, stride, padding):
+        super().__init__()
+        self.kernel = tuple(kernel)
+        self.stride = tuple(stride)
+        self.padding = tuple(padding)
+
+        self.conv = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=self.kernel,
+            stride=self.stride,
+            padding=self.padding,
+            bias=False,
+        )
+        self.norm = nn.BatchNorm2d(out_channels)
+        self.activation = nn.Hardtanh(0, 20)
+
+    def forward(self, x):
+        # (B, C_in, F, T) -> (B, C_out, F', T')
+        x = self.conv(x)
+        x = self.norm(x)
+        x = self.activation(x)
+        return x
+
+    def output_freq(self, n_freq):
+        """Frequency size after this block."""
+        return conv_out_length(n_freq, self.kernel[0], self.stride[0], self.padding[0])
+
+    def output_length(self, lengths):
+        """Time lengths after this block."""
+        return conv_out_length(lengths, self.kernel[1], self.stride[1], self.padding[1])
+
+
 class DeepSpeech2(nn.Module):
     def __init__(
         self,
@@ -31,35 +70,16 @@ class DeepSpeech2(nn.Module):
 
         super().__init__()
 
-        blocks = []
-        self.conv_params = []
+        self.conv_blocks = nn.ModuleList()
         in_channels = 1
         n_freq = n_feats
+
         for params in conv_params:
-            kernel = tuple(params["kernel"])
-            stride = tuple(params["stride"])
-            padding = tuple(params["padding"])
-
-            blocks.append(
-                nn.Sequential(
-                    nn.Conv2d(
-                        in_channels,
-                        conv_channels,
-                        kernel_size=kernel,
-                        stride=stride,
-                        padding=padding,
-                        bias=False,
-                    ),
-                    nn.BatchNorm2d(conv_channels),
-                    nn.Hardtanh(0, 20),
-                )
-            )
-
-            self.conv_params.append((kernel, stride, padding))
-            n_freq = conv_out_length(n_freq, kernel[0], stride[0], padding[0])
+            block = ConvBlock(in_channels, conv_channels, **params)
+            self.conv_blocks.append(block)
+            n_freq = block.output_freq(n_freq)
             in_channels = conv_channels
 
-        self.conv_blocks = nn.ModuleList(blocks)
         self.rnn_input_size = conv_channels * n_freq
 
         self.rnn = nn.GRU(
@@ -84,20 +104,22 @@ class DeepSpeech2(nn.Module):
             output (dict): output dict containing log_probs and
                 transformed lengths.
         """
-        x = spectrogram.unsqueeze(1)
+        x = spectrogram.unsqueeze(1)  # (B, 1, F, T)
+        lengths = spectrogram_length
         for block in self.conv_blocks:
-            x = block(x)
+            x = block(x)  # (B, C, F', T')
+            lengths = block.output_length(lengths)
 
-        x = x.permute(0, 3, 2, 1)
-
-        x = x.reshape(x.shape[0], x.shape[1], -1)
-        lengths = self.transform_input_lengths(spectrogram_length)
+        x = x.permute(0, 3, 2, 1)  # (B, T', F', C)
+        x = x.reshape(x.shape[0], x.shape[1], -1)  # (B, T', F' * C)
         t_out = x.shape[1]
         x = pack_padded_sequence(
             x, lengths.cpu(), batch_first=True, enforce_sorted=False
         )
         x, _ = self.rnn(x)
-        x, _ = pad_packed_sequence(x, batch_first=True, total_length=t_out)
+        x, _ = pad_packed_sequence(
+            x, batch_first=True, total_length=t_out
+        )  # (B, T', 2 * rnn_hidden)
 
         logits = self.fc(x)
         log_probs = nn.functional.log_softmax(logits, dim=-1)
