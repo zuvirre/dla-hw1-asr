@@ -32,6 +32,13 @@ train:
           p: 0.3
           sample_rate: 16000
           output_type: tensor
+  spectrogram:
+    _target_: src.transforms.spec_augs.SpecAugment
+    freq_mask_param: 27
+    time_mask_param: 60
+    n_freq_masks: 2
+    n_time_masks: 2
+    max_time_ratio: 0.1
 
 inference:
   get_spectrogram:
