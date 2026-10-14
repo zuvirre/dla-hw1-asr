@@ -105,10 +105,9 @@ class DeepSpeech2(nn.Module):
                 transformed lengths.
         """
         x = spectrogram.unsqueeze(1)  # (B, 1, F, T)
-        lengths = spectrogram_length
         for block in self.conv_blocks:
             x = block(x)  # (B, C, F', T')
-            lengths = block.output_length(lengths)
+        lengths = self.transform_input_lengths(spectrogram_length)
 
         x = x.permute(0, 3, 2, 1)  # (B, T', F', C)
         x = x.reshape(x.shape[0], x.shape[1], -1)  # (B, T', F' * C)
@@ -121,7 +120,7 @@ class DeepSpeech2(nn.Module):
             x, batch_first=True, total_length=t_out
         )  # (B, T', 2 * rnn_hidden)
 
-        logits = self.fc(x)
+        logits = self.fc(x)  # (B, T', n_tokens)
         log_probs = nn.functional.log_softmax(logits, dim=-1)
         return {"log_probs": log_probs, "log_probs_length": lengths}
 
@@ -131,25 +130,40 @@ class DeepSpeech2(nn.Module):
         what are the new temporal lengths after compression.
 
         Args:
-            input_lengths (Tensor): old input lengths
+            input_lengths (Tensor): old input lengths (B,).
         Returns:
-            output_lengths (Tensor): new temporal lengths
+            output_lengths (Tensor): new temporal lengths (B,).
         """
         lengths = input_lengths
-        for kernel, stride, padding in self.conv_params:
-            lengths = conv_out_length(lengths, kernel[1], stride[1], padding[1])
+        for block in self.conv_blocks:
+            lengths = block.output_length(lengths)
         return lengths
+
+    @staticmethod
+    def _count_params(module):
+        """Return (all, trainable) parameter counts of a module."""
+        all_parameters = sum(p.numel() for p in module.parameters())
+        trainable_parameters = sum(
+            p.numel() for p in module.parameters() if p.requires_grad
+        )
+        return all_parameters, trainable_parameters
 
     def __str__(self):
         """
-        Model prints with the number of parameters.
+        Model prints with the number of parameters, total and per block.
         """
-        all_parameters = sum([p.numel() for p in self.parameters()])
-        trainable_parameters = sum(
-            [p.numel() for p in self.parameters() if p.requires_grad]
-        )
-
         result_info = super().__str__()
+
+        parts = {
+            "conv": self.conv_blocks,
+            "rnn": self.rnn,
+            "fc": self.fc,
+        }
+        for name, module in parts.items():
+            all_parameters, trainable_parameters = self._count_params(module)
+            result_info += f"\n{name} parameters: {all_parameters} (trainable: {trainable_parameters})"
+
+        all_parameters, trainable_parameters = self._count_params(self)
         result_info = result_info + f"\nAll parameters: {all_parameters}"
         result_info = result_info + f"\nTrainable parameters: {trainable_parameters}"
 
