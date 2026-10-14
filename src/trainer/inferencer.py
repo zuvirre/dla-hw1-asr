@@ -129,9 +129,10 @@ class Inferencer(BaseTrainer):
         outputs = self.model(**batch)
         batch.update(outputs)
 
+        batch_size = len(batch["text"])
         if metrics is not None:
             for met in self.metrics["inference"]:
-                metrics.update(met.name, met(**batch))
+                metrics.update(met.name, met(**batch), n=batch_size)
 
         # Some saving logic. This is an example
         # Use if you need to save predictions on disk
