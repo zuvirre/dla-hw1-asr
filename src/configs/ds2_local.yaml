@@ -1,0 +1,13 @@
+# DS2 training on local hardware (RTX 4070 12 GB, i7-12700).
+# Inherits everything from ds2.yaml; overrides only hardware-dependent
+# settings. Training math (batch size, LR, schedule) must stay the same,
+# otherwise local and Kaggle runs are not comparable.
+defaults:
+  - ds2
+  - _self_
+
+dataloader:
+  num_workers: 4 # set after ds2_speedtest_100h (8 if GPU is starved)
+
+trainer:
+  keep_last: 4 # local disk is not a constraint
