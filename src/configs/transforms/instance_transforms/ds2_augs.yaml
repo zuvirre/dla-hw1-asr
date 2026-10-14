@@ -14,8 +14,25 @@ train:
       - _target_: src.transforms.wav_augs.RandomSpeed
         sample_rate: 16000
         factors: [0.9, 1.0, 1.1]
+      - _target_: src.transforms.wav_augs.TorchAudiomentation
+        aug:
+          _target_: torch_audiomentations.LowPassFilter
+          min_cutoff_freq: 3400
+          max_cutoff_freq: 7500
+          p: 0.2
+          sample_rate: 16000
+          output_type: tensor
       - _target_: src.transforms.wav_augs.Gain
-        output_type : tensor
+        output_type: tensor
+      - _target_: src.transforms.wav_augs.TorchAudiomentation
+        aug:
+          _target_: torch_audiomentations.AddColoredNoise
+          min_snr_in_db: 10
+          max_snr_in_db: 30
+          p: 0.3
+          sample_rate: 16000
+          output_type: tensor
+
 inference:
   get_spectrogram:
     _target_: torchvision.transforms.v2.Compose
