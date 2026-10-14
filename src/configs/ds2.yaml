@@ -31,6 +31,7 @@ trainer:
   override: False
   monitor: "min val_WER_(Argmax)"
   save_period: 1
+  keep_last: 4
   early_stop: ${trainer.n_epochs}
   save_dir: "saved"
   seed: 1

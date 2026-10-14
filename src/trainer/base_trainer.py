@@ -481,12 +481,29 @@ class BaseTrainer:
             if self.config.writer.log_checkpoints:
                 self.writer.add_checkpoint(filename, str(self.checkpoint_dir.parent))
             self.logger.info(f"Saving checkpoint: {filename} ...")
+            self._remove_old_checkpoints()
         if save_best:
             best_path = str(self.checkpoint_dir / "model_best.pth")
             torch.save(state, best_path)
             if self.config.writer.log_checkpoints:
                 self.writer.add_checkpoint(best_path, str(self.checkpoint_dir.parent))
             self.logger.info("Saving current best: model_best.pth ...")
+
+    def _remove_old_checkpoints(self):
+        """
+        Keep only the last 'trainer.keep_last' epoch checkpoints.
+        model_best.pth is never removed. Disabled if keep_last is None.
+        """
+        keep_last = self.config.trainer.get("keep_last", None)
+        if keep_last is None:
+            return
+        checkpoints = sorted(
+            self.checkpoint_dir.glob("checkpoint-epoch*.pth"),
+            key=lambda path: int(path.stem.removeprefix("checkpoint-epoch")),
+        )
+        for path in checkpoints[:-keep_last]:
+            path.unlink()
+            self.logger.info(f"Removing old checkpoint: {path.name}")
 
     def _resume_checkpoint(self, resume_path):
         """
