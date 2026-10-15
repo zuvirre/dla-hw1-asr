@@ -1,0 +1,19 @@
+# Fine-tuning the best augmented 100h model on full LibriSpeech;
+# Local hardware settings come from ds2_local;
+defaults:
+  - ds2_local
+  - override datasets: ds2_960h
+  - override transforms: ds2_augs
+  - _self_
+
+optimizer:
+  lr: 5e-4 # overwritten by OneCycleLR schedule
+lr_scheduler:
+  max_lr: 5e-4 # lower than original as the model is already trained
+  pct_start: 0.05 # short warmup
+
+trainer:
+  n_epochs: 110
+  epoch_len: 1000
+  monitor: "min val_other_WER_(Argmax)"
+  from_pretrained: "saved/ds2_augs_100h/model_best.pth"
