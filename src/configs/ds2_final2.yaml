@@ -1,0 +1,15 @@
+# Second fine-tuning cycle on full LibriSpeech:
+# start from the best model of ds2_final_960h, new OneCycle with lower peak LR.
+defaults:
+  - ds2_final
+  - _self_
+
+optimizer:
+  lr: 3e-4 # overwritten by OneCycleLR schedule
+lr_scheduler:
+  max_lr: 3e-4 # lower than ds2_final
+  pct_start: 0.05
+
+trainer:
+  n_epochs: 100
+  from_pretrained: "saved/ds2_final_960h/model_best.pth"
