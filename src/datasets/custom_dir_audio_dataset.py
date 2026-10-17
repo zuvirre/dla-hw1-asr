@@ -1,20 +1,39 @@
+import logging
 from pathlib import Path
+
+import torchaudio
 
 from src.datasets.base_dataset import BaseDataset
 
+logger = logging.getLogger(__name__)
+
 
 class CustomDirAudioDataset(BaseDataset):
-    def __init__(self, audio_dir, transcription_dir=None, *args, **kwargs):
-        data = []
-        for path in Path(audio_dir).iterdir():
-            entry = {}
-            if path.suffix in [".mp3", ".wav", ".flac", ".m4a"]:
-                entry["path"] = str(path)
-                if transcription_dir and Path(transcription_dir).exists():
-                    transc_path = Path(transcription_dir) / (path.stem + ".txt")
-                    if transc_path.exists():
-                        with transc_path.open() as f:
-                            entry["text"] = f.read().strip()
-            if len(entry) > 0:
-                data.append(entry)
-        super().__init__(data, *args, **kwargs)
+    def __init__(self, data_dir, *args, **kwargs):
+        data_dir = Path(data_dir)
+        audio_dir = data_dir / "audio"
+        transcription_dir = data_dir / "transcriptions"
+        has_transcriptions = transcription_dir.exists()
+
+        index = []
+        for path in sorted(audio_dir.iterdir()):
+            if path.suffix.lower() not in (".wav", ".flac", ".mp3"):
+                continue
+            try:
+                audio, sr = torchaudio.load(str(path))
+            except Exception as e:
+                logger.warning(f"Skipping unreadable audio {path.name}: {e}")
+                continue
+            text = ""
+            if has_transcriptions:
+                transcription_path = transcription_dir / f"{path.stem}.txt"
+                text = transcription_path.read_text(encoding="utf-8").strip()
+            index.append(
+                {"path": str(path), "text": text, "audio_len": audio.shape[-1] / sr}
+            )
+
+        logger.info(
+            f"Custom dir: {len(index)} audio files, "
+            f"transcriptions: {'yes' if has_transcriptions else 'no'}"
+        )
+        super().__init__(index, *args, **kwargs)

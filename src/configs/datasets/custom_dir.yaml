@@ -1,0 +1,5 @@
+# Usage: python inference.py datasets=custom_dir datasets.custom.data_dir=<path>
+custom:
+  _target_: src.datasets.CustomDirAudioDataset
+  data_dir: ??? # required, set from the command line
+  instance_transforms: ${transforms.instance_transforms.inference}

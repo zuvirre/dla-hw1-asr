@@ -68,8 +68,9 @@ class Inferencer(BaseTrainer):
         # define dataloaders
         self.evaluation_dataloaders = {k: v for k, v in dataloaders.items()}
 
-        # path definition
+        self.single_part = len(self.evaluation_dataloaders) == 1
 
+        # path definition
         self.save_path = save_path
 
         # define metrics
@@ -144,10 +145,13 @@ class Inferencer(BaseTrainer):
         for pred, length, audio_path in zip(predictions, lengths, batch["audio_path"]):
             pred_text = self.text_encoder.ctc_decode(pred[:length])
             utt_id = Path(audio_path).stem
-            out_path = self.save_path / part / f"{utt_id}.txt"
+            out_path = self._part_save_dir(part) / f"{utt_id}.txt"
             out_path.write_text(pred_text, encoding="utf-8")
 
         return batch
+
+    def _part_save_dir(self, part):
+        return self.save_path if self.single_part else self.save_path / part
 
     def _inference_part(self, part, dataloader):
         """
@@ -167,19 +171,22 @@ class Inferencer(BaseTrainer):
 
         # create Save dir
         if self.save_path is not None:
-            (self.save_path / part).mkdir(exist_ok=True, parents=True)
+            self._part_save_dir(part).mkdir(exist_ok=True, parents=True)
 
+        computed_metrics = False
         with torch.no_grad():
             for batch_idx, batch in tqdm(
                 enumerate(dataloader),
                 desc=part,
                 total=len(dataloader),
             ):
+                has_targets = any(batch["text"])
                 batch = self.process_batch(
                     batch_idx=batch_idx,
                     batch=batch,
                     part=part,
-                    metrics=self.evaluation_metrics,
+                    metrics=self.evaluation_metrics if has_targets else None,
                 )
+                computed_metrics = computed_metrics or has_targets
 
-        return self.evaluation_metrics.result()
+        return self.evaluation_metrics.result() if computed_metrics else {}
