@@ -1,10 +1,11 @@
 import re
+from collections import defaultdict
 from string import ascii_lowercase
 
+import numpy as np
 import torch
 
-# TODO add CTC decode
-# TODO add BPE, LM, Beam Search support
+# TODO add BPE, LM, support
 # Note: think about metrics and encoder
 # The design can be remarkably improved
 # to calculate stuff more efficiently and prettier
@@ -67,6 +68,47 @@ class CTCTextEncoder:
                 decoded_text.append(self.ind2char[ind])
             previous_ind = ind
         return "".join(decoded_text)
+
+    def ctc_beam_search(self, log_probs, length, beam_size=100) -> str:
+        """
+        CTC prefix beam search.
+
+        Args:
+            log_probs (Tensor | np.ndarray): (T, V) log-probs of one utterance.
+            length (int): number of valid frames.
+            beam_size (int): number of prefixes kept after each frame.
+        Returns:
+            text (str): the most probable text.
+        """
+        if isinstance(log_probs, torch.Tensor):
+            log_probs = log_probs.detach().cpu().numpy()
+
+        log_probs = log_probs[:length]
+        probs = np.exp(log_probs)
+        beam = {"": [1.0, 0.0]}  # prefix -> [p_blank, p_nonblank]
+
+        for prob_t in probs:
+            new_beam = defaultdict(lambda: [0.0, 0.0])
+            for prefix, (p_b, p_nb) in beam.items():
+                for ind, p in enumerate(prob_t):
+                    if ind == self.char2ind[self.EMPTY_TOK]:
+                        new_beam[prefix][0] += (p_b + p_nb) * p
+                        continue
+                    char = self.ind2char[ind]
+                    if len(prefix) > 0 and prefix[-1] == char:
+                        new_beam[prefix][1] += p_nb * p
+                        new_beam[prefix + char][1] += p_b * p
+                    else:
+                        new_beam[prefix + char][1] += (p_b + p_nb) * p
+
+            beam = dict(sorted(new_beam.items(), key=lambda x: -sum(x[1]))[:beam_size])
+
+            total = sum(p_b + p_nb for p_b, p_nb in beam.values())
+            beam = {
+                prefix: [p_b / total, p_nb / total]
+                for prefix, (p_b, p_nb) in beam.items()
+            }
+        return next(iter(beam))
 
     @staticmethod
     def normalize_text(text: str):
