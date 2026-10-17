@@ -1,6 +1,6 @@
 defaults:
   - model: deepspeech2
-  - metrics: ds2
+  - metrics: ds2_beam
   - datasets: ds2_test # we do not want to run inference on training data
   - dataloader: ds2
   - transforms: ds2

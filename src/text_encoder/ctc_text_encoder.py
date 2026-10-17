@@ -69,7 +69,7 @@ class CTCTextEncoder:
             previous_ind = ind
         return "".join(decoded_text)
 
-    def ctc_beam_search(self, log_probs, length, beam_size=100) -> str:
+    def ctc_beam_search(self, log_probs, length, beam_size=10) -> str:
         """
         CTC prefix beam search.
 
