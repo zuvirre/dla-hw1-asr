@@ -15,4 +15,6 @@ inferencer:
   device: auto # device name or "auto"
   save_path: "ds2_final2_960h"
   seed: 1
+  decoder: "lm"
+  beam_size: 10
   from_pretrained: "saved/ds2_final2_960h/model_best.pth" # path to the pretrained model

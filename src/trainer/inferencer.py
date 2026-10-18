@@ -73,6 +73,15 @@ class Inferencer(BaseTrainer):
         # path definition
         self.save_path = save_path
 
+        # decoder for the saved predictions: argmax | beam | lm
+        self.decoder = config.inferencer.get("decoder", "argmax")
+        self.beam_size = config.inferencer.get("beam_size", 10)
+        assert self.decoder in (
+            "argmax",
+            "beam",
+            "lm",
+        ), f"Unknown decoder: {self.decoder}"
+
         # define metrics
         self.metrics = metrics
         if self.metrics is not None:
@@ -140,10 +149,24 @@ class Inferencer(BaseTrainer):
         if self.save_path is None:
             return batch
 
-        predictions = batch["log_probs"].argmax(dim=-1).cpu().numpy()
+        # save predictions as <ID>.txt, decoded with self.decoder
+        log_probs = batch["log_probs"].detach().cpu().numpy()
         lengths = batch["log_probs_length"].cpu().numpy()
-        for pred, length, audio_path in zip(predictions, lengths, batch["audio_path"]):
-            pred_text = self.text_encoder.ctc_decode(pred[:length])
+        for log_prob_vec, length, audio_path in zip(
+            log_probs, lengths, batch["audio_path"]
+        ):
+            if self.decoder == "lm":
+                pred_text = self.text_encoder.ctc_lm_beam_search(
+                    log_prob_vec, length, self.beam_size
+                )
+            elif self.decoder == "beam":
+                pred_text = self.text_encoder.ctc_beam_search(
+                    log_prob_vec, length, self.beam_size
+                )
+            else:
+                pred_text = self.text_encoder.ctc_decode(
+                    log_prob_vec[:length].argmax(-1)
+                )
             utt_id = Path(audio_path).stem
             out_path = self._part_save_dir(part) / f"{utt_id}.txt"
             out_path.write_text(pred_text, encoding="utf-8")
