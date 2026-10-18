@@ -9,3 +9,11 @@ inference:
   - _target_: src.metrics.BeamSearchWERMetric
     name: "WER_(BeamSearch)"
     beam_size: 10
+  - _target_: src.metrics.BeamSearchCERMetric
+    name: "CER_(BeamSearch+LM)"
+    beam_size: 10
+    use_lm: true
+  - _target_: src.metrics.BeamSearchWERMetric
+    name: "WER_(BeamSearch+LM)"
+    beam_size: 10
+    use_lm: true

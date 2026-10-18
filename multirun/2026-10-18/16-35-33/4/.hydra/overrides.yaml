@@ -1,0 +1,5 @@
+- datasets.test_clean.part=dev-other
+- +datasets.test_clean.limit=500
+- ~datasets.test_other=null
+- text_encoder.alpha=0.5
+- text_encoder.beta=0.0

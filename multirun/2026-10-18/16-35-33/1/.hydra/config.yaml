@@ -1,0 +1,99 @@
+model:
+  _target_: src.model.DeepSpeech2
+  n_feats: 128
+  conv_params:
+  - kernel:
+    - 41
+    - 11
+    stride:
+    - 2
+    - 2
+    padding:
+    - 20
+    - 5
+  - kernel:
+    - 21
+    - 11
+    stride:
+    - 2
+    - 1
+    padding:
+    - 10
+    - 5
+  conv_channels: 32
+  rnn_hidden: 512
+  rnn_layers: 3
+  dropout: 0.1
+metrics:
+  inference:
+  - _target_: src.metrics.ArgmaxCERMetric
+    name: CER_(Argmax)
+  - _target_: src.metrics.ArgmaxWERMetric
+    name: WER_(Argmax)
+  - _target_: src.metrics.BeamSearchCERMetric
+    name: CER_(BeamSearch)
+    beam_size: 10
+  - _target_: src.metrics.BeamSearchWERMetric
+    name: WER_(BeamSearch)
+    beam_size: 10
+  - _target_: src.metrics.BeamSearchCERMetric
+    name: CER_(BeamSearch+LM)
+    beam_size: 10
+    use_lm: true
+  - _target_: src.metrics.BeamSearchWERMetric
+    name: WER_(BeamSearch+LM)
+    beam_size: 10
+    use_lm: true
+datasets:
+  test_clean:
+    _target_: src.datasets.LibrispeechDataset
+    part: dev-other
+    instance_transforms: ${transforms.instance_transforms.inference}
+    limit: 500
+dataloader:
+  _target_: torch.utils.data.DataLoader
+  batch_size: 32
+  num_workers: 4
+  pin_memory: true
+  persistent_workers: true
+transforms:
+  instance_transforms:
+    train:
+      get_spectrogram:
+        _target_: torchvision.transforms.v2.Compose
+        transforms:
+        - _target_: torchaudio.transforms.MelSpectrogram
+          sample_rate: 16000
+          n_mels: 128
+        - _target_: torchaudio.transforms.AmplitudeToDB
+          stype: power
+          top_db: 80
+      audio:
+        _target_: torchvision.transforms.v2.Compose
+        transforms:
+        - _target_: src.transforms.wav_augs.Gain
+    inference:
+      get_spectrogram:
+        _target_: torchvision.transforms.v2.Compose
+        transforms:
+        - _target_: torchaudio.transforms.MelSpectrogram
+          sample_rate: 16000
+          n_mels: 128
+        - _target_: torchaudio.transforms.AmplitudeToDB
+          stype: power
+          top_db: 80
+  batch_transforms:
+    train: null
+    inference: null
+text_encoder:
+  _target_: src.text_encoder.CTCTextEncoder
+  lm_path: data/lm/3-gram.pruned.1e-7.lower.arpa
+  alpha: 0.3
+  beta: 0.5
+inferencer:
+  device_tensors:
+  - spectrogram
+  device: auto
+  save_path: ds2_final2_960h
+  seed: 1
+  from_pretrained: saved/ds2_final2_960h/model_best.pth

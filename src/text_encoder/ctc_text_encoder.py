@@ -4,8 +4,9 @@ from string import ascii_lowercase
 
 import numpy as np
 import torch
+from pyctcdecode import build_ctcdecoder
 
-# TODO add BPE, LM, support
+# TODO add BPE
 # Note: think about metrics and encoder
 # The design can be remarkably improved
 # to calculate stuff more efficiently and prettier
@@ -14,7 +15,7 @@ import torch
 class CTCTextEncoder:
     EMPTY_TOK = ""
 
-    def __init__(self, alphabet=None, **kwargs):
+    def __init__(self, alphabet=None, lm_path=None, alpha=0.5, beta=1.0, **kwargs):
         """
         Args:
             alphabet (list): alphabet for language. If None, it will be
@@ -29,6 +30,11 @@ class CTCTextEncoder:
 
         self.ind2char = dict(enumerate(self.vocab))
         self.char2ind = {v: k for k, v in self.ind2char.items()}
+
+        self.lm_path = lm_path
+        self.alpha = alpha
+        self.beta = beta
+        self.lm_decoder = None
 
     def __len__(self):
         return len(self.vocab)
@@ -109,6 +115,18 @@ class CTCTextEncoder:
                 for prefix, (p_b, p_nb) in beam.items()
             }
         return next(iter(beam))
+
+    def ctc_lm_beam_search(self, log_probs, length, beam_size=10) -> str:
+        if self.lm_decoder is None:
+            self.lm_decoder = build_ctcdecoder(
+                self.vocab,
+                kenlm_model_path=self.lm_path,
+                alpha=self.alpha,
+                beta=self.beta,
+            )
+        if isinstance(log_probs, torch.Tensor):
+            log_probs = log_probs.detach().cpu().numpy()
+        return self.lm_decoder.decode(log_probs[:length], beam_width=beam_size)
 
     @staticmethod
     def normalize_text(text: str):

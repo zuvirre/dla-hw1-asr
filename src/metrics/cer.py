@@ -30,10 +30,13 @@ class ArgmaxCERMetric(BaseMetric):
 
 
 class BeamSearchCERMetric(BaseMetric):
-    def __init__(self, text_encoder, beam_size=10, *args, **kwargs):
+    def __init__(self, text_encoder, beam_size=10, use_lm=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.text_encoder = text_encoder
         self.beam_size = beam_size
+        self.decode = (
+            text_encoder.ctc_lm_beam_search if use_lm else text_encoder.ctc_beam_search
+        )
 
     def __call__(
         self, log_probs: Tensor, log_probs_length: Tensor, text: List[str], **kwargs
@@ -43,8 +46,6 @@ class BeamSearchCERMetric(BaseMetric):
         lengths = log_probs_length.detach().cpu().numpy()
         for log_prob_vec, length, target_text in zip(log_probs, lengths, text):
             target_text = self.text_encoder.normalize_text(target_text)
-            pred_text = self.text_encoder.ctc_beam_search(
-                log_prob_vec, length, self.beam_size
-            )
+            pred_text = self.decode(log_prob_vec, length, self.beam_size)
             cers.append(calc_cer(target_text, pred_text))
         return sum(cers) / len(cers)
