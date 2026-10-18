@@ -107,6 +107,7 @@ saved/
 wandb/
 .cometml-runs/
 outputs/
+multirun/
 
 # editor, os cache directory
 .vscode/
