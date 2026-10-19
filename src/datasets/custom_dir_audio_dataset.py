@@ -27,7 +27,10 @@ class CustomDirAudioDataset(BaseDataset):
             text = ""
             if has_transcriptions:
                 transcription_path = transcription_dir / f"{path.stem}.txt"
-                text = transcription_path.read_text(encoding="utf-8").strip()
+                if transcription_path.exists():
+                    text = transcription_path.read_text(encoding="utf-8").strip()
+                else:
+                    logger.warning(f"No transcription for {path.name}")
             index.append(
                 {"path": str(path), "text": text, "audio_len": audio.shape[-1] / sr}
             )
