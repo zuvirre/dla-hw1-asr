@@ -65,7 +65,7 @@ cd dla-hw1-asr
    # Linux / macOS
    source .venv/bin/activate
    # Windows (PowerShell); the first line allows activation scripts in this terminal only
-   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
    .venv\Scripts\activate
    ```
 
@@ -92,7 +92,7 @@ cd dla-hw1-asr
 
    # Windows (PowerShell); the second line allows activation scripts in this terminal only
    py -3.12 -m venv .venv
-   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
    .venv\Scripts\activate
    ```
 
