@@ -37,37 +37,51 @@ Final model (`saved/ds2_final2_960h/model_best.pth`), LibriSpeech test, beam siz
 
 KenLM (needed for beam search with the language model) is built from source during the installation. On Windows this needs a C++ compiler, see [Language model](#language-model).
 
-### Option A: `uv`
+Clone the repository:
 
-[`uv`](https://docs.astral.sh/uv/) downloads Python 3.12 automatically, so it works with any system Python.
+```bash
+git clone https://github.com/zuvirre/dla-hw1-asr.git
+cd dla-hw1-asr
+```
 
-1. Create and activate the environment:
+### Option A: `uv` (recommended, any OS)
+
+[`uv`](https://docs.astral.sh/uv/) does not need Python or `pip`: it downloads Python 3.12 itself, so this works with any system Python or without it.
+
+1. Install `uv` ([official instructions](https://docs.astral.sh/uv/getting-started/installation/)), then open a new terminal:
 
    ```bash
-   pip install uv
+   # Windows
+   winget install --id=astral-sh.uv -e
+   # Linux / macOS
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+2. Create and activate the environment:
+
+   ```bash
    uv venv --python 3.12 .venv
 
    # Linux / macOS
    source .venv/bin/activate
-   # Windows (PowerShell)
+   # Windows (PowerShell); the first line allows activation scripts in this terminal only
+   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
    .venv\Scripts\activate
    ```
 
-2. (Windows with an NVIDIA GPU only) Install the CUDA build of torch (the default Windows wheel is CPU-only; on Linux it already includes CUDA 12.1):
+3. (Windows with an NVIDIA GPU only) Install the CUDA build of torch (the default Windows wheel is CPU-only; on Linux it already includes CUDA 12.1):
 
    ```bash
    uv pip install torch==2.2.0 torchaudio==2.2.0 torchvision==0.17.0 --index-url https://download.pytorch.org/whl/cu121
    ```
 
-3. Install all required packages:
+4. Install all required packages:
 
    ```bash
    uv pip install -r requirements.txt
    ```
 
-### Option B: `venv` + `pip`
-
-Python 3.12 must be installed.
+### Option B: `venv` + `pip` (Python 3.12 is already installed)
 
 1. Create and activate the environment:
 
@@ -76,21 +90,22 @@ Python 3.12 must be installed.
    python3.12 -m venv .venv
    source .venv/bin/activate
 
-   # Windows (PowerShell)
+   # Windows (PowerShell); the second line allows activation scripts in this terminal only
    py -3.12 -m venv .venv
+   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
    .venv\Scripts\activate
    ```
 
 2. (Windows with an NVIDIA GPU only) Install the CUDA build of torch (the default Windows wheel is CPU-only; on Linux it already includes CUDA 12.1):
 
    ```bash
-   pip install torch==2.2.0 torchaudio==2.2.0 torchvision==0.17.0 --index-url https://download.pytorch.org/whl/cu121
+   python -m pip install torch==2.2.0 torchaudio==2.2.0 torchvision==0.17.0 --index-url https://download.pytorch.org/whl/cu121
    ```
 
 3. Install all required packages:
 
    ```bash
-   pip install -r requirements.txt
+   python -m pip install -r requirements.txt
    ```
 
 ### Download the checkpoint and the language model
