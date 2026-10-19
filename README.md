@@ -134,7 +134,7 @@ Beam search with the LM uses [pyctcdecode](https://github.com/kensho-technologie
 ### Inference
 
 Evaluate the final model on LibriSpeech test-clean and test-other (the parts are downloaded automatically on the first run, ~17.5 min on RTX 4070).
-If `www.openslr.org` is slow or unavailable (e.g. from Russia), use a VPN, or download the parts manually from the mirror `https://openslr.magicdatatech.com/resources/12/`, extract them and move `LibriSpeech/<part>` to `data/datasets/librispeech/<part>` (e.g. `data/datasets/librispeech/test-clean`); parts that already exist are not downloaded again.
+LibriSpeech is downloaded from the openslr mirror `openslr.magicdatatech.com`; if it is slow, change the base URL in `URL_LINKS` in `src/datasets/librispeech_dataset.py` to `https://www.openslr.org/resources/12/`.
 
 ```bash
 python inference.py
